@@ -1,6 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-    content: ["*"],
+    content: ["./**/*.{html,js,ts,jsx,tsx}"],
     theme: {
         extend: {
             fontFamily: {
@@ -8,5 +8,5 @@ module.exports = {
             }
         }
     },
-    plugins: [],
+    plugins: [], safelist: ['hover:!text-[#4889eb]', 'hover:!border-[#4889eb]'],
 }
