@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="overflow-x-hidden">
 <head>
     <link href="./src/output.css" rel="stylesheet">
     <meta charset="UTF-8">
@@ -78,6 +78,7 @@
       let closeTimer;
       let isMouseOverContainer = false;
       let isMouseOverMenu = false;
+      let isAnimating = false;
       
       const clearAllTimers = () => {
         clearTimeout(openTimer);
@@ -85,27 +86,49 @@
       };
       
       const tryOpen = () => {
+        // Si ya está visible o en transición, no hacer nada
+        if (!menu.classList.contains('hidden') && animationStates.get(menu) === 'visible') return;
+        if (isAnimating) return;
+        
         clearAllTimers();
         // Delay de apertura para evitar abrir accidentalmente al pasar el mouse rápido
         openTimer = setTimeout(() => {
-          if (isMouseOverContainer || isMouseOverMenu) {
+          if ((isMouseOverContainer || isMouseOverMenu) && !isAnimating) {
+            isAnimating = true;
             animateShow(menu);
+            // Resetear flag después de la animación
+            setTimeout(() => { isAnimating = false; }, 400);
           }
-        }, 100); // 100ms delay de apertura
+        }, 150); // 150ms delay de apertura (aumentado)
       };
       
       const tryClose = () => {
+        // Si ya está oculto, no hacer nada
+        if (menu.classList.contains('hidden') && animationStates.get(menu) === 'hidden') return;
+        if (isAnimating) return;
+        
         clearAllTimers();
         // Delay de cierre más largo para permitir transiciones suaves
         closeTimer = setTimeout(() => {
-          if (!isMouseOverContainer && !isMouseOverMenu) {
+          if (!isMouseOverContainer && !isMouseOverMenu && !isAnimating) {
+            isAnimating = true;
             animateHide(menu);
+            // Resetear flag después de la animación
+            setTimeout(() => { isAnimating = false; }, 400);
           }
-        }, 300); // 300ms delay de cierre
+        }, 200); // 200ms delay de cierre (reducido para mejor respuesta)
       };
       
-      // Event listeners mejorados con prevención de propagación
+      // Prevenir múltiples eventos rápidos
+      let lastMouseEnter = 0;
+      const DEBOUNCE_DELAY = 50; // 50ms de debounce
+      
+      // Event listeners mejorados con prevención de propagación y debounce
       container.addEventListener('mouseenter', (e) => {
+        const now = Date.now();
+        if (now - lastMouseEnter < DEBOUNCE_DELAY) return;
+        lastMouseEnter = now;
+        
         e.stopPropagation();
         isMouseOverContainer = true;
         tryOpen();
@@ -120,7 +143,7 @@
       menu.addEventListener('mouseenter', (e) => {
         e.stopPropagation();
         isMouseOverMenu = true;
-        tryOpen();
+        // No necesitamos abrir ya que el menú ya debería estar abierto
       });
       
       menu.addEventListener('mouseleave', (e) => {
@@ -129,23 +152,31 @@
         tryClose();
       });
       
-      // Click handler mejorado
+      // Click handler mejorado con prevención de doble click
+      let clickTimeout;
       if (button) {
         button.addEventListener('click', (e) => {
           e.stopPropagation();
-          clearAllTimers();
-          if (menu.classList.contains('hidden') || animationStates.get(el) === 'hidden') {
-            animateShow(menu);
-          } else {
-            animateHide(menu);
-          }
+          clearTimeout(clickTimeout);
+          clickTimeout = setTimeout(() => {
+            clearAllTimers();
+            if (menu.classList.contains('hidden') || animationStates.get(menu) === 'hidden') {
+              animateShow(menu);
+            } else {
+              animateHide(menu);
+            }
+          }, 50); // Pequeño delay para prevenir clicks múltiples
         });
       }
       
-      // Cerrar al hacer click fuera
+      // Cerrar al hacer click fuera con delay
+      let outsideClickTimeout;
       document.addEventListener('click', (e) => {
         if (!container.contains(e.target) && !menu.contains(e.target)) {
-          animateHide(menu);
+          clearTimeout(outsideClickTimeout);
+          outsideClickTimeout = setTimeout(() => {
+            animateHide(menu);
+          }, 100);
         }
       });
     };
@@ -227,10 +258,24 @@
 /* Animación suave para el contenido del submenú */
 .submenu-content {
   transition: all 0.2s ease;
+  color: #000000; /* Asegurar color negro para el texto */
 }
 
 .submenu-content:hover {
   padding-left: 1.5rem;
+}
+
+/* Asegurar que todos los enlaces dentro de submenús tengan color negro */
+#dropdown a,
+#dropdown2 a,
+#dropdown3 a {
+  color: #000000;
+}
+
+#dropdown li,
+#dropdown2 li,
+#dropdown3 li {
+  color: #000000;
 }
 
 /* Efecto hover con imagen de fondo al 20% de opacidad */
@@ -520,7 +565,7 @@
 <nav class="hidden xl:flex justify-between fixed inset-x-0 box-border px-10 pt-5 font-black text-xs uppercase z-20">
         <div><img src="/imgs/Menues/logo-menu-claro.png" alt=""></div>
         <div>
-            <div class="list-none flex flex-row items-center gap-12 text-white ">
+            <div class="list-none flex flex-row items-center gap-12 text-white">
 
                 <div class="w-35 items-center flex flex-col relative" id="dropdownButton">
                     <div class="flex flex-row gap-3 justify-center" id="button">Quienes Somos
@@ -586,8 +631,8 @@
     </nav>
     
     <!-- Mobile/Tablet Header (visible solo en móvil y tablet) -->
-    <div class="xl:hidden fixed top-0 inset-x-0 z-50 box-border w-full flex items-center justify-between px-4 py-4" style="padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);">
-        <img src="/imgs/Menues/logo-menu-oscuro.png" alt="immoral" class="h-6 w-auto">
+    <div class="bg-white xl:hidden fixed top-0 inset-x-0 z-50 box-border w-full flex items-center justify-between px-4 py-4" style="padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);">
+        <img src="/imgs/Menues/logo-menu-oscuro.png" alt="immoral" class="ml-4 h-6 w-auto">
         <button id="mobileMenuOpenBtn" aria-label="Abrir menú" class="p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M4 6h16M4 12h16M4 18h16" stroke="#000" stroke-width="2" stroke-linecap="round"/>
@@ -601,7 +646,7 @@
         <div class="flex flex-col h-[100dvh]">
         <!-- Header del overlay -->
         <div class="flex items-center justify-between px-4 pt-4 pb-2 shrink-0 box-border w-full" style="padding-left: env(safe-area-inset-left); padding-right: env(safe-area-inset-right);">
-            <img src="/imgs/Menues/logo-menu-claro.png" alt="immoral" class="h-6 w-auto">
+            <img src="/imgs/Menues/logo-menu-oscuro.png" alt="immoral" class="ml-4 h-6 w-auto">
             <button id="mobileMenuCloseBtn" aria-label="Cerrar menú" class="p-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M6 6l12 12M18 6l-12 12" stroke="#000" stroke-width="2" stroke-linecap="round"/>
@@ -688,8 +733,8 @@
     </div>
     
     <!--! HERO -->
-    <div class="w-dvw overflow-hidden h-[50vh] sm:h-[60vh] md:h-[80vh] xl:h-auto">
-        <video src="imgs/home-video.mp4" autoplay muted loop class="w-full h-full object-cover"></video>
+    <div class="w-dvw overflow-hidden h-screen xl:h-auto bg-black flex items-center justify-center">
+        <video src="imgs/home-video.mp4" autoplay muted loop class="w-auto h-auto max-w-full max-h-full object-contain"></video>
     </div>
 
     <!-- Section Services -->
@@ -752,7 +797,7 @@ Combinamos branding y performance para que dejes de depender solo de anuncios y 
     <section class="w-dvw relative bg-white flex flex-col items-center mt-12 sm:mt-24 xl:mt-52 mb-16 sm:mb-24 xl:mb-32 px-6">
             <h1 class="font-Lexend font-black text-3xl sm:text-4xl xl:text-5xl text-center">No lo hacemos como los demás.<br></h1>
             <h1 class="font-Lexend font-black text-3xl sm:text-4xl xl:text-5xl text-[#4889eb] mb-6 xl:mb-10 text-center">Y por esto funciona.</h1>            
-            <img src="./imgs/line-box.png" alt="linea que conecta concepto" class="w-11/12 sm:w-9/12 xl:w-auto">
+            <img src="./imgs/line-box.png" alt="linea que conecta concepto" class="hidden xl:block w-11/12 sm:w-9/12 xl:w-auto">
             <div class="max-w-10/12 flex flex-wrap justify-center items-start gap-4 sm:gap-6 xl:gap-8 h-auto mt-6">
                 <div class="w-56 max-w-56 max-h-42 flex flex-col items-center bg-gray-100 rounded-lg px-4 py-6">
                     <img src="./imgs/ico-home-box-1.png" alt="icono">
@@ -797,27 +842,27 @@ Combinamos branding y performance para que dejes de depender solo de anuncios y 
         </div>
         <div class="w-full xl:w-1/3 h-auto xl:h-full relative flex flex-col justify-center items-start gap-4 px-6 sm:px-8 py-12 xl:py-0">
             
-            <div class="w-12/12 flex ml-16 items-start proceso-item" data-proceso="1">
+            <div class="w-12/12 flex ml-4 sm:ml-16 items-start proceso-item" data-proceso="1">
                 <h1 class="font-sans font-thin text-6xl text-white">1</h1>
-                <p class="font-sans font-light text-lg text-white ml-7 mt-5 leading-tight">
+                <p class="font-sans font-light text-lg text-white ml-4 sm:ml-7 mt-5 leading-tight">
                     <b class="font-sans font-bold proceso-titulo">Diagnóstico sin atajos</b><br>
                     <b class="hidden font-light proceso-subtitulo">Nos metemos en tu operación. Analizamos,<br>
                     entendemos, preguntamos</b>
                 </p>
             </div>
 
-            <div class="w-12/12 flex ml-16 mt-6 proceso-item" data-proceso="2">
+            <div class="w-12/12 flex ml-4 sm:ml-16 mt-6 proceso-item" data-proceso="2">
                 <h1 class="font-sans font-thin text-6xl text-white">2</h1>
-                <p class="font-sans font-light text-lg text-white ml-4 mt-5 leading-tight">
+                <p class="font-sans font-light text-lg text-white ml-4 sm:ml-4 mt-5 leading-tight">
                     <b class="font-sans font-bold proceso-titulo">Estrategia personalizada</b><br>
                     <b class="hidden font-light proceso-subtitulo">Sin plantillas. Sin PowerPoints eternos. Una<br>
                     hoja de ruta clara, accionable y medible.</b>
                 </p>
             </div>
 
-            <div class="w-12/12 flex ml-16 mt-6 proceso-item" data-proceso="3">
+            <div class="w-12/12 flex ml-4 sm:ml-16 mt-6 proceso-item" data-proceso="3">
                 <h1 class="font-sans font-thin text-6xl text-white">3</h1>
-                <p class="font-sans font-light text-lg text-white ml-4 leading-tight">
+                <p class="font-sans font-light text-lg text-white ml-4 sm:ml-4 leading-tight">
                     <b class="font-sans font-bold proceso-titulo">Implementación sin fricciones</b><br>
                     <b class="font-light proceso-subtitulo">Nos integramos como parte de tu equipo.<br>
                     Ejecutamos con cuidado, IA, automaticación<br>
@@ -825,9 +870,9 @@ Combinamos branding y performance para que dejes de depender solo de anuncios y 
                 </p>
             </div>
 
-            <div class="w-12/12 flex items-start ml-16 mt-6 proceso-item" data-proceso="4">
+            <div class="w-12/12 flex items-start ml-4 sm:ml-16 mt-6 proceso-item" data-proceso="4">
                 <h1 class="font-sans font-thin text-6xl text-white">4</h1>
-                <p class="font-sans font-light text-lg text-white ml-4 mt-5 leading-tight">
+                <p class="font-sans font-light text-lg text-white ml-4 sm:ml-4 mt-5 leading-tight">
                     <b class="font-sans font-bold proceso-titulo">Optimización continua</b><br>
                     <b class="hidden font-light proceso-subtitulo">Leemos los datos. Detectamos patrones.<br>
                     Afinamos cada detalle. Siempre.</b>
@@ -882,13 +927,20 @@ Combinamos branding y performance para que dejes de depender solo de anuncios y 
                 </div>
                 
                 <div class="relative px-8 xl:px-12">
-                    <button id="simple-testimonials-prev" aria-label="Anterior" class="absolute -left-10 xl:-left-16 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4889eb]">
+                    <button id="simple-testimonials-prev" aria-label="Anterior" class="absolute left-0 xl:-left-16 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4889eb]">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M15 18L9 12L15 6" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                
+                <div class="relative px-8 xl:px-12">
+                    <button id="simple-testimonials-prev" aria-label="Anterior" class="absolute left-0 xl:-left-16 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4889eb]">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M15 18L9 12L15 6" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
                     
-                    <button id="simple-testimonials-next" aria-label="Siguiente" class="absolute -right-10 xl:-right-16 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4889eb]">
+                    <button id="simple-testimonials-next" aria-label="Siguiente" class="absolute right-0 xl:-right-16 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#4889eb]">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M9 18L15 12L9 6" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
@@ -964,13 +1016,13 @@ Combinamos branding y performance para que dejes de depender solo de anuncios y 
                 <div class="w-full xl:w-[60%] relative h-full">
                     
                     <!-- Mobile Navigation Buttons -->
-                    <button id="testimonials-prev" class="xl:hidden absolute -left-8 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200">
+                    <button id="testimonials-prev" class="xl:hidden absolute left-0 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M15 18L9 12L15 6" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
                     
-                    <button id="testimonials-next" class="xl:hidden absolute -right-8 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200">
+                    <button id="testimonials-next" class="xl:hidden absolute right-0 top-1/2 transform -translate-y-1/2 z-10 bg-white/80 hover:bg-white rounded-full p-3 shadow-lg transition-all duration-200">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M9 18L15 12L9 6" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
@@ -1283,5 +1335,97 @@ Combinamos branding y performance para que dejes de depender solo de anuncios y 
     </script>
     <script src="components/simple-testimonials.js"></script>
     <script src="components/mobile-menu.js"></script>
+    
+    <script>
+        // Script para cambiar el color del menú desktop cuando se hace scroll
+        document.addEventListener('DOMContentLoaded', function() {
+            const desktopMenu = document.querySelector('nav.hidden.xl\\:flex'); // Seleccionar el menú desktop
+            const heroSection = document.querySelector('div.w-dvw.overflow-hidden.h-screen'); // Sección hero
+            
+            if (desktopMenu && heroSection) {
+                function updateMenuColor() {
+                    const heroHeight = heroSection.offsetHeight;
+                    const scrollPosition = window.scrollY;
+                    
+                    // Si el scroll es mayor a la altura del hero, cambiar a negro
+                    if (scrollPosition > heroHeight - 100) { // -100px para un cambio más temprano
+                        // Cambiar el logo a la versión oscura
+                        const logo = desktopMenu.querySelector('img');
+                        if (logo) {
+                            logo.src = 'imgs/Menues/logo-menu-oscuro.png';
+                        }
+                        
+                        // Cambiar el color de los elementos del menú a negro
+                        const menuItems = desktopMenu.querySelectorAll('div.list-none a li');
+                        menuItems.forEach(item => {
+                            item.classList.remove('text-white');
+                            item.classList.add('text-white'); // Mantener blanco para el botón contacto
+                            // Si no es el botón de contacto, cambiar a negro
+                            if (!item.closest('a').classList.contains('bg-blue-500')) {
+                                item.classList.remove('text-white');
+                                item.classList.add('text-black');
+                            }
+                        });
+                        
+                        // Cambiar el color de los botones con flecha y sus flechas
+                        const menuButtons = desktopMenu.querySelectorAll('div.list-none > div');
+                        menuButtons.forEach(button => {
+                            const buttonText = button.querySelector('#button, #button2, #button3');
+                            if (buttonText) {
+                                buttonText.classList.remove('text-white');
+                                buttonText.classList.add('text-black');
+                                
+                                // Cambiar también el color de la flecha
+                                const arrow = buttonText.querySelector('img');
+                                if (arrow) {
+                                    arrow.classList.remove('filter-white');
+                                    arrow.classList.add('filter-black');
+                                    // Aplicar filtro CSS para cambiar el color de la flecha
+                                    arrow.style.filter = 'invert(1)';
+                                }
+                            }
+                        });
+                    } else {
+                        // En el hero, mantener blanco
+                        // Cambiar el logo a la versión clara
+                        const logo = desktopMenu.querySelector('img');
+                        if (logo) {
+                            logo.src = 'imgs/Menues/logo-menu-claro.png';
+                        }
+                        
+                        // Cambiar el color de los elementos del menú a blanco
+                        const menuItems = desktopMenu.querySelectorAll('div.list-none a li');
+                        menuItems.forEach(item => {
+                            // Si no es el botón de contacto, cambiar a blanco
+                            if (!item.closest('a').classList.contains('bg-blue-500')) {
+                                item.classList.remove('text-black');
+                                item.classList.add('text-white');
+                            }
+                        });
+                        
+                        // Cambiar el color de los botones con flecha y sus flechas
+                        const menuButtons = desktopMenu.querySelectorAll('div.list-none > div');
+                        menuButtons.forEach(button => {
+                            const buttonText = button.querySelector('#button, #button2, #button3');
+                            if (buttonText) {
+                                buttonText.classList.remove('text-black');
+                                buttonText.classList.add('text-white');
+                                
+                                // Cambiar también el color de la flecha
+                                const arrow = buttonText.querySelector('img');
+                                if (arrow) {
+                                    arrow.style.filter = 'invert(0)';
+                                }
+                            }
+                        });
+                    }
+                }
+                
+                // Ejecutar al cargar y al hacer scroll
+                updateMenuColor();
+                window.addEventListener('scroll', updateMenuColor);
+            }
+        });
+    </script>
 </body>
 </html>
